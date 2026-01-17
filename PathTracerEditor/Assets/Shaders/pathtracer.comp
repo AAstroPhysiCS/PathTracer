@@ -1,0 +1,229 @@
+#version 460 core
+#extension GL_ARB_bindless_texture : enable
+#extension GL_NV_gpu_shader5 : enable
+#extension GL_ARB_shading_language_include : require
+
+layout (local_size_x = 8, local_size_y = 8) in;
+
+#include "samplers.glsl"
+#include "commons.glsl"
+#include "pbr.glsl"
+
+layout(std430, binding = 0) buffer Triangles {
+    Triangle s_Triangles[];
+};
+
+layout(std430, binding = 1) buffer Materials {
+    Material s_Materials[];
+};
+
+layout(std430, binding = 2) buffer Entities {
+    Entity s_Entites[];
+};
+
+#include "bvh.glsl"
+
+layout(std140, binding = 0) uniform Camera {
+    vec3 Position;
+    vec3 Direction;
+
+    vec3 Right;
+    vec3 Up;
+
+    float Fov;
+} u_Camera;
+
+layout(std140, binding = 1) uniform Settings {
+    uint FrameCounter;
+    uint TotalTriangleCount;
+
+    uint MaxBounces;
+    uint SamplesPerFrame;
+    uint MaxSamples;
+
+    uint Accumulate;
+    uint UseMIS;
+    uint EnableDenoiser;
+
+    uint ShowBVH;
+    uint ShowRays;
+
+    float Exposure;
+    float Gamma;
+} u_Settings;
+
+layout(std140, binding = 2) uniform DirectionalLight {
+    vec4 Direction;
+    vec4 Color;
+    float Intensity;
+} u_DirectionalLight;
+
+layout (rgba32f, binding = 0) uniform image2D u_AccumImage;
+
+MaterialData SampleMaterial(in Material mat, vec2 uv) {
+    MaterialData data;
+
+    data.Albedo = mat.AlbedoIndex == 0 ? mat.DiffuseColor : texture(sampler2D(mat.AlbedoIndex), uv);
+    data.Normal = mat.NormalIndex == 0 ? vec3(0) : texture(sampler2D(mat.NormalIndex), uv).rgb * 2.0 - 1.0;
+    data.Roughness = mat.RoughnessIndex == 0 ? mat.Roughness : texture(sampler2D(mat.RoughnessIndex), uv).g; //gltf workflow
+    data.Metallic = mat.MetallicIndex == 0 ? mat.Metallic : texture(sampler2D(mat.MetallicIndex), uv).b;
+    data.AO = mat.AmbientOcclusionIndex == 0 ? 1.0 : texture(sampler2D(mat.AmbientOcclusionIndex), uv).r;
+    data.Emission = mat.EmissionIndex == 0 ? mat.EmissiveColor : texture(sampler2D(mat.EmissionIndex), uv);
+
+    return data;
+}
+
+bool RayMeshIntersect(in Ray r, out vec3 hitNormal, out vec3 hitPos, out MaterialData hitMaterial) {
+    bool hit = false;
+    Triangle hitTri;
+    float closestT = 1e30;
+    float hitU = 0, hitV = 0;
+
+    TraverseBVH(r, hit, closestT, hitTri, hitNormal, hitU, hitV);
+
+    if (hit) {
+        float w = 1.0 - hitU - hitV;
+        vec2 uv = hitTri.UV0.xy * w + hitTri.UV1.xy * hitU + hitTri.UV2.xy * hitV;
+
+        hitMaterial = SampleMaterial(s_Materials[hitTri.ID.x], uv);
+        
+        vec3 interpolatedNormal = normalize(hitTri.N0.xyz * w + hitTri.N1.xyz * hitU + hitTri.N2.xyz * hitV);
+
+        if (hitMaterial.Normal == vec3(0)) {
+            hitNormal = interpolatedNormal;
+        } else {
+            vec3 interpolatedTangent = normalize(hitTri.T0.xyz * w + hitTri.T1.xyz * hitU + hitTri.T2.xyz * hitV);
+            interpolatedTangent = normalize(interpolatedTangent - dot(interpolatedTangent, interpolatedNormal) * interpolatedNormal);
+            vec3 interpolatedBiTangent = cross(interpolatedNormal, interpolatedTangent);
+
+            // Transform normal map from tangent to world space
+            hitNormal = normalize(interpolatedTangent * hitMaterial.Normal.x + interpolatedBiTangent * hitMaterial.Normal.y + interpolatedNormal * hitMaterial.Normal.z);
+        }
+
+        // 2. FACE FORWARD: If we hit the back side, flip the normal to face the ray
+        // This prevents the ray from being self-occluded or pushed inside the mesh
+        if (dot(r.Direction, hitNormal) > 0.0) {
+            hitNormal = -hitNormal;
+        }
+
+        hitPos = r.Origin + r.Direction * closestT;
+    }
+
+    return hit;
+}
+
+Ray CreateRay(in vec3 pos, in vec3 dir) {
+    Ray ray;
+    ray.Origin = pos;
+    ray.Direction = dir;
+    ray.InvDirection = 1.0 / max(abs(ray.Direction), vec3(1e-6))
+                         * sign(ray.Direction);
+    ray.Sign.x = int((ray.InvDirection.x < 0));
+    ray.Sign.y = int((ray.InvDirection.y < 0));
+    ray.Sign.z = int((ray.InvDirection.z < 0));
+    return ray;
+}
+
+vec3 TraceScene(in Ray cameraRay, inout uint seed) {
+    vec3 throughput = vec3(1.0);
+    vec3 radiance = vec3(0.0);
+
+    for (uint bounce = 0; bounce < u_Settings.MaxBounces; bounce++) {
+        vec3 hitPos, hitNormal;
+        MaterialData mat;
+
+        if (!RayMeshIntersect(cameraRay, hitNormal, hitPos, mat)) {
+            radiance = throughput * vec3(0.5, 0.7, 1.0); // Blue sky
+            break;
+        }
+
+        /*
+        if (any(greaterThan(mat.Emission, vec4(1.0f)))) {
+            radiance += throughput * mat.Albedo.rgb * mat.Emission.rgb;
+            break;
+        }
+        */
+
+        vec3 V = -normalize(cameraRay.Direction);
+        vec3 newDir = GGX_Sample(mat.Roughness, hitNormal, V, seed);
+
+        // Next Event Estimation for sun
+        vec3 sunDir = normalize(u_DirectionalLight.Direction.xyz);
+        float NdotL = max(dot(hitNormal, sunDir), 0.0);
+
+        if (NdotL > 0.0) {
+            Ray shadowRay;
+            shadowRay.Origin = hitPos + hitNormal * 0.001;
+            shadowRay.Direction = sunDir;
+
+            vec3 tmpNormal, tmpPos;
+            MaterialData tmpMat;
+            if (!RayMeshIntersect(shadowRay, tmpNormal, tmpPos, tmpMat)) {
+                // Sun is visible from this point
+                // Lambertian BRDF: albedo / PI
+                //vec3 brdf = mat.Albedo.rgb / PI;
+                vec3 sunBRDF = EvaluatePBR(mat, V, sunDir, hitNormal);
+
+                vec3 sunContribution = sunBRDF * NdotL * u_DirectionalLight.Color.rgb * u_DirectionalLight.Intensity;
+                radiance += throughput * sunContribution;
+            }
+        }
+        
+        //vec3 newDir = CosineWeightedHemisphereSampling(hitNormal, seed);
+        float NdotWi = max(dot(hitNormal, newDir), 0.0);
+        if (NdotWi <= 0.0)
+            break;
+
+        vec3 brdf = EvaluatePBR(mat, V, newDir, hitNormal);
+        float pdf = GGX_PDF(mat.Roughness, hitNormal, V, newDir);
+
+        //vec3 brdf = mat.Albedo.rgb / PI;
+        //float pdf = NdotWi / PI;
+
+        throughput *= brdf * NdotWi / pdf;
+
+        // Russian roulette
+        if (bounce > 2) {
+            float p = max(throughput.r, max(throughput.g, throughput.b));
+            p = clamp(p, 0.05, 0.95);
+            if (Rand(seed) > p)
+                break;
+            throughput /= p;
+        }
+
+        cameraRay = CreateRay(hitPos + hitNormal * 0.001, newDir);
+    }
+
+    return radiance;
+}
+
+vec3 ApplyPostProcessing(in vec3 color) {
+    return pow(color * u_Settings.Exposure, vec3(1.0f / u_Settings.Gamma));
+}
+
+void main() {
+	ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 res = imageSize(u_AccumImage);
+
+    uint seed = pcg_hash(
+        pixel.x +
+        pixel.y * res.x +
+        u_Settings.FrameCounter * 16777619u
+    );
+
+    vec2 uv = (vec2(pixel) + vec2(Rand(seed), Rand(seed))) / res;
+    vec2 ndc = uv * 2.0 - 1.0;
+
+    float aspect = float(res.x) / float(res.y);
+    float scale = tan(radians(u_Camera.Fov * 0.5f));
+
+    Ray cameraRay = CreateRay(u_Camera.Position, normalize(u_Camera.Direction + ndc.x * aspect * scale * u_Camera.Right + ndc.y * scale * u_Camera.Up));
+
+    vec3 color = ApplyPostProcessing(TraceScene(cameraRay, seed));
+
+    vec4 prev = imageLoad(u_AccumImage, pixel);
+    float frame = min(u_Settings.FrameCounter, u_Settings.MaxSamples - 1);
+    vec3 accum = (prev.rgb * frame + color) / (frame + 1.0);
+
+    u_Settings.Accumulate != 0 ? imageStore(u_AccumImage, pixel, vec4(accum, 1.0)) : imageStore(u_AccumImage, pixel, vec4(color, 1.0));
+}
