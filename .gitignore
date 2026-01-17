@@ -8,6 +8,8 @@
 *.obj
 
 *.sln
+*.vcxproj
+*.vcxproj.filters
 
 <!--
 Source - https://stackoverflow.com/a
