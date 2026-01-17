@@ -290,5 +290,7 @@ paket-files/
 *.out
 *.app
 
+!Libraries/
+
 # debug information files
 *.dwo
