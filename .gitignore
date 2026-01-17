@@ -286,11 +286,9 @@ paket-files/
 *.lib
 
 # Executables
-*.exe
+
 *.out
 *.app
-
-!Libraries/
 
 # debug information files
 *.dwo
