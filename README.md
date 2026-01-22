@@ -58,22 +58,24 @@ cd PathTracer
 
 ## Screenshots
 
-<table>
-  <tr>
-    <td align="center">
-      <img src="https://github.com/AAstroPhysiCS/PathTracer/blob/main/Github/bistro2.png" width="200" alt="Bistro" /><br>
-      <b>Bistro</b><br>
-    </td>
-    <td align="center">
-      <img src="https://github.com/AAstroPhysiCS/PathTracer/blob/main/Github/salle_de_bain.png" width="200" alt="Salle de Bain" /><br>
-      <b>Salle de Bain</b><br>
-    </td>
-    <td align="center">
-      <img src="https://github.com/AAstroPhysiCS/PathTracer/blob/main/Github/sponza2.png" width="200" alt="Sponza Atrium" /><br>
-      <b>Sponza Atrium</b><br>
-    </td>
-  </tr>
-</table>
+<div align="center">
+    <table>
+    <tr>
+        <td align="center">
+        <img src="https://github.com/AAstroPhysiCS/PathTracer/blob/main/Github/bistro1.png" width="200" alt="Bistro" /><br>
+        <b>Bistro</b><br>
+        </td>
+        <td align="center">
+        <img src="https://github.com/AAstroPhysiCS/PathTracer/blob/main/Github/salle_de_bain.png" width="200" alt="Salle de Bain" /><br>
+        <b>Salle de Bain</b><br>
+        </td>
+        <td align="center">
+        <img src="https://github.com/AAstroPhysiCS/PathTracer/blob/main/Github/sponza2.png" width="200" alt="Sponza Atrium" /><br>
+        <b>Sponza Atrium</b><br>
+        </td>
+    </tr>
+    </table>
+</div>
 
 ## References
 
