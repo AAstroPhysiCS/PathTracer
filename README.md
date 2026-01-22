@@ -46,7 +46,7 @@ First of all, these requirements must be fullfilled in order to run this PathTra
 Since this project already contains all the external dependencies, you can build it via Windows subsystems with Premake by running the Script **Generate.bat**. 
 
 ```bash
-git clone https://github.com/AAstroPhysiCS/PathTracer.git
+git clone --recursive https://github.com/AAstroPhysiCS/PathTracer.git
 cd PathTracer
 ./Generate.bat
 ```
