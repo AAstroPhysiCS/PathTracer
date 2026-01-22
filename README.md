@@ -3,7 +3,7 @@
 This repository contains a **GPU-based path tracer** implemented using **OpenGL 4.6 compute shaders**.  
 
 <div align="center">
-<img src="https://github.com/AAstroPhysiCS/PathTracer/blob/main/Github/bistro2.png" width="70%" alt="Bistro" />
+<img src="https://github.com/AAstroPhysiCS/PathTracer/blob/main/Github/bistro2.png" width="80%" alt="Bistro" />
 </div>
 
 The project was developed as part of a university graphics course. The primary motivation was to implement path tracing on older GPUs without dedicated ray tracing cores. Given that OpenGL does not provide native GPU-accelerated ray tracing, this project demonstrates a fully shader-based approach. The renderer evaluates the rendering equation stochastically and progressively converges to physically plausible images through frame accumulation.
