@@ -10,6 +10,7 @@ project "PathTracerEngine"
         "Source/**.cpp",
 
         "Libraries/glad/src/glad.c",
+        "Libraries/DDSLoader/src/dds.c",
 
         "Libraries/imgui/include/**.h",
         "Libraries/imgui/include/**.cpp",
@@ -27,6 +28,7 @@ project "PathTracerEngine"
         "Libraries/stb/include",
         "Libraries/assimp/include",
         "Libraries/imgui/include",
+        "Libraries/DDSLoader/include",
     }
 
     filter "configurations:Debug"

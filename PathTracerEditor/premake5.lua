@@ -9,7 +9,7 @@ project "PathTracerEditor"
     files {
       "Source/**.h",
       "Source/**.hpp",
-      "Source/**.cpp"
+      "Source/**.cpp",
     }
 
     includedirs {
@@ -20,6 +20,7 @@ project "PathTracerEditor"
       "../PathTracerEngine/Libraries/glfw/include",
       "../PathTracerEngine/Libraries/assimp/include",
       "../PathTracerEngine/Libraries/imgui/include",
+      "../PathTracerEngine/Libraries/DDSLoader/include",
     }
 
     postbuildcommands {

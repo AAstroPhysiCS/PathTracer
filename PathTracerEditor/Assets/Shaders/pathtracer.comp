@@ -8,6 +8,7 @@ layout (local_size_x = 8, local_size_y = 8) in;
 #include "samplers.glsl"
 #include "commons.glsl"
 #include "pbr.glsl"
+#include "tonemapping.glsl"
 
 layout(std430, binding = 0) buffer Triangles {
     Triangle s_Triangles[];
@@ -127,33 +128,47 @@ Ray CreateRay(in vec3 pos, in vec3 dir) {
 vec3 TraceScene(in Ray cameraRay, inout uint seed) {
     vec3 throughput = vec3(1.0);
     vec3 radiance = vec3(0.0);
+    float lastBsdfPdf = 0.0f;
 
+    #pragma unroll 4
     for (uint bounce = 0; bounce < u_Settings.MaxBounces; bounce++) {
         vec3 hitPos, hitNormal;
         MaterialData mat;
 
         if (!RayMeshIntersect(cameraRay, hitNormal, hitPos, mat)) {
-            radiance = throughput * vec3(0.5, 0.7, 1.0); // Blue sky
+            vec3 Li = EvaluateEnvironment(cameraRay.Direction);
+
+            if (bounce == 0) {
+                // Camera ray: no MIS
+                radiance += throughput * Li;
+            } else {
+                float envPdf = EnvironmentPDF();
+                float misWeight = PowerHeuristic(lastBsdfPdf, envPdf);
+                radiance += throughput * Li * misWeight;
+            }
             break;
         }
 
         /*
-        if (any(greaterThan(mat.Emission, vec4(1.0f)))) {
-            radiance += throughput * mat.Albedo.rgb * mat.Emission.rgb;
-            break;
+        if (length(mat.Emission.rgb) > 0.0) {
+            radiance += throughput * mat.Emission.rgb;
         }
         */
 
         vec3 V = -normalize(cameraRay.Direction);
-        vec3 newDir = GGX_Sample(mat.Roughness, hitNormal, V, seed);
+        //vec3 newDir = GGX_Sample(mat.Roughness, hitNormal, V, seed);
 
         // Next Event Estimation for sun
         vec3 sunDir = normalize(u_DirectionalLight.Direction.xyz);
         float NdotL = max(dot(hitNormal, sunDir), 0.0);
 
+        float lobePdf;
+        float combinedPdf;
+        SampleResult s = SampleBSDF(mat, V, hitNormal, seed, lobePdf, combinedPdf);
+
         if (NdotL > 0.0) {
             Ray shadowRay;
-            shadowRay.Origin = hitPos + hitNormal * 0.001;
+            shadowRay.Origin = hitPos + sunDir * 0.001;
             shadowRay.Direction = sunDir;
 
             vec3 tmpNormal, tmpPos;
@@ -161,26 +176,73 @@ vec3 TraceScene(in Ray cameraRay, inout uint seed) {
             if (!RayMeshIntersect(shadowRay, tmpNormal, tmpPos, tmpMat)) {
                 // Sun is visible from this point
                 // Lambertian BRDF: albedo / PI
-                //vec3 brdf = mat.Albedo.rgb / PI;
-                vec3 sunBRDF = EvaluatePBR(mat, V, sunDir, hitNormal);
+                // vec3 brdf = mat.Albedo.rgb / PI;
+                vec3 f = EvaluatePBR(mat, V, sunDir, hitNormal);
 
-                vec3 sunContribution = sunBRDF * NdotL * u_DirectionalLight.Color.rgb * u_DirectionalLight.Intensity;
-                radiance += throughput * sunContribution;
+                /*
+                    When sampled via NEE -> pdf_light = 1.0
+                    When sampled via BSDF -> pdf_light = 0.0
+                */
+                float bsdfPdf = pdf_vndf_isotropic(V, sunDir, mat.Roughness, hitNormal);
+                bsdfPdf = max(bsdfPdf, 1e-6);
+
+                float lightPdf = 1.0; // delta light
+                float misWeight = PowerHeuristic(lightPdf, bsdfPdf);
+
+                vec3 Li = u_DirectionalLight.Color.rgb * u_DirectionalLight.Intensity;
+                radiance += throughput * f * Li * NdotL * misWeight;
             }
         }
-        
-        //vec3 newDir = CosineWeightedHemisphereSampling(hitNormal, seed);
-        float NdotWi = max(dot(hitNormal, newDir), 0.0);
-        if (NdotWi <= 0.0)
-            break;
 
-        vec3 brdf = EvaluatePBR(mat, V, newDir, hitNormal);
-        float pdf = GGX_PDF(mat.Roughness, hitNormal, V, newDir);
+        {
+            float envPdf = EnvironmentPDF();
+            vec3 envDir = SampleEnvironment(seed, envPdf);
+
+            float NdotL = max(dot(hitNormal, envDir), 0.0);
+            bool isSpecularOnly = (lobePdf >= 0.999);
+            if (NdotL > 0.0 && isSpecularOnly)
+            {
+                Ray shadowRay;
+                shadowRay.Origin = hitPos + envDir * 0.001;
+                shadowRay.Direction = envDir;
+
+                vec3 tmpN, tmpP;
+                MaterialData tmpM;
+                if (!RayMeshIntersect(shadowRay, tmpN, tmpP, tmpM))
+                {
+                    vec3 f = EvaluatePBR(mat, V, envDir, hitNormal);
+                    float bsdfPdf = pdf_vndf_isotropic(V, envDir, mat.Roughness, hitNormal);
+                    bsdfPdf = max(bsdfPdf, 1e-6);
+
+                    float misWeight = PowerHeuristic(envPdf, bsdfPdf);
+                    vec3 Li = EvaluateEnvironment(envDir);
+
+                    radiance += throughput * f * Li * NdotL * misWeight / envPdf;
+                }
+            }
+        }
+
+        //FOR DEBUG
+        //vec3 newDir = CosineWeightedHemisphereSampling(hitNormal, seed);
+        //float NdotWi = max(dot(hitNormal, newDir), 0.0);
+        //if (NdotWi <= 0.0)
+        //    break;
+
+        //vec3 brdf = EvaluatePBR(mat, V, newDir, hitNormal);
+        //float pdf = GGX_PDF(mat.Roughness, hitNormal, V, newDir);
 
         //vec3 brdf = mat.Albedo.rgb / PI;
         //float pdf = NdotWi / PI;
 
-        throughput *= brdf * NdotWi / pdf;
+        //throughput *= brdf * NdotWi / pdf;
+
+        float NdotWi = max(dot(hitNormal, s.Direction), 0.0);
+        if (s.PDF <= 0.0 || NdotWi <= 0.0)
+            break;
+
+        throughput *= s.BRDF * NdotWi / combinedPdf;
+
+        lastBsdfPdf = combinedPdf;
 
         // Russian roulette
         if (bounce > 2) {
@@ -191,14 +253,14 @@ vec3 TraceScene(in Ray cameraRay, inout uint seed) {
             throughput /= p;
         }
 
-        cameraRay = CreateRay(hitPos + hitNormal * 0.001, newDir);
+        cameraRay = CreateRay(hitPos + hitNormal * 0.001, s.Direction);
     }
 
     return radiance;
 }
 
 vec3 ApplyPostProcessing(in vec3 color) {
-    return pow(color * u_Settings.Exposure, vec3(1.0f / u_Settings.Gamma));
+    return pow(aces(color * u_Settings.Exposure), vec3(1.0f / u_Settings.Gamma));
 }
 
 void main() {

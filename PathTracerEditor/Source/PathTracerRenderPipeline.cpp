@@ -29,10 +29,10 @@ PathTracerRenderPipeline::PathTracerRenderPipeline(const PathTracerRenderPipelin
 	m_SettingsBuffer = renderDevice->CreateUniformBuffer("u_Settings", sizeof(PathTracer::SettingsBufferGPUData));
 	m_DirectionalLightBuffer = renderDevice->CreateUniformBuffer("u_DirectionalLight", sizeof(PathTracer::DirectionalLight));
 
-	//256 MB
-	m_TriangleBuffer = renderDevice->CreateStorageBuffer("s_Triangles", 256 * 1024 * 1024);
+	//2 GB
+	m_TriangleBuffer = renderDevice->CreateStorageBuffer("s_Triangles", 2048 * 1024 * 1024);
 	m_MaterialBuffer = renderDevice->CreateStorageBuffer("s_Materials", 256 * 1024 * 1024);
-	m_BVHBuffer = renderDevice->CreateStorageBuffer("s_BVHNodes", 256 * 1024 * 1024);
+	m_BVHBuffer = renderDevice->CreateStorageBuffer("s_BVHNodes", 512 * 1024 * 1024);
 	m_EntityBuffer = renderDevice->CreateStorageBuffer("s_Entities", 1024);
 
 	m_ComputeShader = renderDevice->CreateComputeShader("Assets/Shaders/pathtracer.comp");

@@ -4,6 +4,8 @@
 
 #include "glad/glad.h"
 
+#include "dds.h"
+
 #include "stb/stb_image.h"
 
 namespace PathTracer {
@@ -71,24 +73,67 @@ namespace PathTracer {
 
 		int forceChannels = GetSTBIChannelsForFormat(createInfo.Format);
 
-		if (format.Type == GL_FLOAT || format.Type == GL_HALF_FLOAT) {
-			// HDR / float textures
-			float* data = stbi_loadf(createInfo.Path.string().c_str(), &width, &height, &channels, forceChannels);
-			PT_ASSERT(data, std::format("Failed to load HDR texture: %s", createInfo.Path.string().c_str()));
+		bool isDDS = createInfo.Path.extension() == ".dds" || createInfo.Path.extension() == ".DDS";
 
-			glTexImage2D(GL_TEXTURE_2D, 0, format.InternalFormat,
-				width, height, 0, format.Format, format.Type, data);
+		if (isDDS) {
+			DDSFile* ddsFile = dds_load(createInfo.Path.string().c_str());
+			PT_ASSERT(ddsFile != nullptr, "Failed to load DDS file");
 
-			stbi_image_free(data);
+			width = ddsFile->dwWidth;
+			height = ddsFile->dwHeight;
+
+			bool compressed = ddsFile->ddspf.dwFlags & DDPF_FOURCC;
+
+			if (compressed) {
+				GLenum compFormat = 0;
+				GLsizei imageSize = 0;
+				uint32_t fourCC = ddsFile->ddspf.dwFourCC;
+
+				switch (fourCC) {
+					case 0x31545844: // "DXT1"
+						compFormat = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
+						imageSize = ((width + 3) / 4) * ((height + 3) / 4) * 8;
+						break;
+					case 0x33545844: // "DXT3"
+						compFormat = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
+						imageSize = ((width + 3) / 4) * ((height + 3) / 4) * 16;
+						break;
+					case 0x35545844: // "DXT5"
+						compFormat = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+						imageSize = ((width + 3) / 4) * ((height + 3) / 4) * 16;
+						break;
+					default:
+						PT_ASSERT(false, "Unsupported DDS compression format");
+				}
+
+				glCompressedTexImage2D(GL_TEXTURE_2D, 0, compFormat, width, height, 0, imageSize, ddsFile->blBuffer);
+			} else {
+				glTexImage2D(GL_TEXTURE_2D, 0, format.InternalFormat, width, height, 0,
+					format.Format, format.Type, ddsFile->blBuffer);
+			}
+
+			dds_free(ddsFile);
 		} else {
-			// LDR / 8-bit textures
-			uint8_t* data = stbi_load(createInfo.Path.string().c_str(), &width, &height, &channels, forceChannels);
-			PT_ASSERT(data, std::format("Failed to load texture: %s", createInfo.Path.string().c_str()));
+			if (format.Type == GL_FLOAT || format.Type == GL_HALF_FLOAT) {
+				// HDR / float textures
 
-			glTexImage2D(GL_TEXTURE_2D, 0, format.InternalFormat,
-				width, height, 0, format.Format, format.Type, data);
+				float* data = stbi_loadf(createInfo.Path.string().c_str(), &width, &height, &channels, forceChannels);
+				PT_ASSERT(data, std::format("Failed to load HDR texture: ", createInfo.Path.string().c_str()));
 
-			stbi_image_free(data);
+				glTexImage2D(GL_TEXTURE_2D, 0, format.InternalFormat,
+					width, height, 0, format.Format, format.Type, data);
+
+				stbi_image_free(data);
+			} else {
+				// LDR / 8-bit textures
+				uint8_t* data = stbi_load(createInfo.Path.string().c_str(), &width, &height, &channels, forceChannels);
+				PT_ASSERT(data, std::format("Failed to load texture: {0}", createInfo.Path.string().c_str()));
+
+				glTexImage2D(GL_TEXTURE_2D, 0, format.InternalFormat,
+					width, height, 0, format.Format, format.Type, data);
+
+				stbi_image_free(data);
+			}
 		}
 
 		createInfo.Width = width;

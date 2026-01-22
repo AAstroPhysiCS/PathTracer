@@ -29,7 +29,7 @@ namespace PathTracer {
 			return;
 
 		if (offset + size > m_Size) {
-			PT_LOG_CRITICAL("OpenGLStorageBuffer: Size is greater than the available size!");
+			PT_LOG_CRITICAL(std::format("{0}: OpenGLStorageBuffer: Size is greater than the available size!", m_Name));
 			return;
 		}
 
@@ -38,7 +38,7 @@ namespace PathTracer {
 
 	size_t OpenGLStorageBuffer::AppendData(const void* data, size_t size) {
 		if (m_Head + size > m_Size) {
-			PT_LOG_CRITICAL("OpenGLStorageBuffer: Out of space!");
+			PT_LOG_CRITICAL(std::format("{0}: OpenGLStorageBuffer: Out of space!", m_Name));
 			return UINT32_MAX;
 		}
 

@@ -38,7 +38,7 @@ namespace PathTracer {
 		glm::vec4 DiffuseColor;
 		float RoughnessFactor = 1.0f;
 		float MetallicFactor = 0.0f;
-		glm::vec4 EmissiveColor{ 1.0f };
+		glm::vec4 EmissiveColor{ 0.0f };
 		std::shared_ptr<Texture> Diffuse;
 		std::shared_ptr<Texture> Normal;
 		std::shared_ptr<Texture> MetallicRoughness;

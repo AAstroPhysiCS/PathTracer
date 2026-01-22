@@ -59,14 +59,16 @@ namespace PathTracer {
 				tri.N1.w = min.y;
 				tri.N2.w = min.z;
 
-				tri.T0 = glm::vec4(submesh.Tangents[i0], 1.0f);
-				tri.T1 = glm::vec4(submesh.Tangents[i1], 1.0f);
-				tri.T2 = glm::vec4(submesh.Tangents[i2], 1.0f);
+				if (!submesh.Tangents.empty()) {
+					tri.T0 = glm::vec4(submesh.Tangents[i0], 1.0f);
+					tri.T1 = glm::vec4(submesh.Tangents[i1], 1.0f);
+					tri.T2 = glm::vec4(submesh.Tangents[i2], 1.0f);
 
-				tri.T0.w = max.x;
-				tri.T1.w = max.y;
-				tri.T2.w = max.z;
-				
+					tri.T0.w = max.x;
+					tri.T1.w = max.y;
+					tri.T2.w = max.z;
+				}
+
 				if (!submesh.TextureCoords.empty()) {
 					tri.UV0 = glm::vec4(submesh.TextureCoords[i0], 1.0f, 1.0f);
 					tri.UV1 = glm::vec4(submesh.TextureCoords[i1], 1.0f, 1.0f);
@@ -389,7 +391,7 @@ namespace PathTracer {
 
 		m_MaterialBufferGPUs[id] = MaterialBufferGPUData{
 			.DiffuseColor = output.DiffuseColor,
-			.EmissiveColor = output.EmissiveColor == glm::vec4(0.0) ? glm::vec4(1.0) : output.EmissiveColor,
+			.EmissiveColor = output.EmissiveColor,
 			.AlbedoIndex = albedoIndex,
 			.NormalIndex = normalIndex,
 			.RoughnessIndex = roughnessIndex,
