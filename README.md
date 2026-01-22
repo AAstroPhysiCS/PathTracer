@@ -38,6 +38,7 @@ You can experiment with these models or create your own scenes. (See the screens
 
 ## Building the Project
 First of all, these requirements must be fullfilled in order to run this PathTracer.
+- VS 2022 or 2026
 - GPU with support for **OpenGL 4.6**
 - Support for:
   - `GL_ARB_bindless_texture`
