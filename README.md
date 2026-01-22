@@ -3,7 +3,7 @@
 This repository contains a **GPU-based path tracer** implemented using **OpenGL 4.6 compute shaders**.  
 
 <div align="center">
-<img src="https://github.com/AAstroPhysiCS/PathTracer/blob/main/Github/bistro2.png" width="100%" alt="Bistro" />
+<img src="https://github.com/AAstroPhysiCS/PathTracer/blob/main/Github/bistro2.png" width="70%" alt="Bistro" />
 </div>
 
 The project was developed as part of a university graphics course. The primary motivation was to implement path tracing on older GPUs without dedicated ray tracing cores. Given that OpenGL does not provide native GPU-accelerated ray tracing, this project demonstrates a fully shader-based approach. The renderer evaluates the rendering equation stochastically and progressively converges to physically plausible images through frame accumulation.
@@ -62,18 +62,18 @@ cd PathTracer
 ## Screenshots
 
 <div align="center">
-  <table style="border-collapse: collapse; border: none;">
+  <table style="border-collapse: collapse; border: none; width: 100%;">
     <tr>
-      <td align="center" style="border: none;">
-        <img src="https://github.com/AAstroPhysiCS/PathTracer/blob/main/Github/bistro1.png" width="33%" alt="Bistro" /><br>
+      <td align="center" style="border: none; width: 33%;">
+        <img src="https://github.com/AAstroPhysiCS/PathTracer/blob/main/Github/bistro1.png" style="width: 100%; height: auto;" alt="Bistro" /><br>
         <b>Bistro</b><br>
       </td>
-      <td align="center" style="border: none;">
-        <img src="https://github.com/AAstroPhysiCS/PathTracer/blob/main/Github/salle_de_bain.png" width="33%" alt="Salle de Bain" /><br>
+      <td align="center" style="border: none; width: 33%;">
+        <img src="https://github.com/AAstroPhysiCS/PathTracer/blob/main/Github/salle_de_bain.png" style="width: 100%; height: auto;" alt="Salle de Bain" /><br>
         <b>Salle de Bain</b><br>
       </td>
-      <td align="center" style="border: none;">
-        <img src="https://github.com/AAstroPhysiCS/PathTracer/blob/main/Github/sponza2.png" width="33%" alt="Sponza Atrium" /><br>
+      <td align="center" style="border: none; width: 33%;">
+        <img src="https://github.com/AAstroPhysiCS/PathTracer/blob/main/Github/sponza2.png" style="width: 100%; height: auto;" alt="Sponza Atrium" /><br>
         <b>Sponza Atrium</b><br>
       </td>
     </tr>
