@@ -38,7 +38,7 @@ project "PathTracerEngine"
         links {
             "Libraries/glfw/lib-vc2022/glfw3.lib",
             "Libraries/glm/bin/glm.lib",
-            "Libraries/assimp/lib/x64/assimp-vc143-mt.lib",
+            "Libraries/assimp/bin/assimp-vc145-mt.lib",
         }
 
     filter "configurations:Release"
@@ -48,5 +48,5 @@ project "PathTracerEngine"
         links {
             "Libraries/glfw/lib-vc2022/glfw3_mt.lib",
             "Libraries/glm/bin/glm.lib",
-            "Libraries/assimp/lib/x64/assimp-vc143-mt.lib",
+            "Libraries/assimp/bin/assimp-vc145-mt.lib",
         }
