@@ -76,7 +76,7 @@ vec3 GGX_Sample(float roughness, vec3 N, vec3 V, inout uint seed) {
     * From: https://gist.github.com/jdupuy/4c6e782b62c92b9cb3d13fbb0a5bd7a0#file-samplevndf_ggx-cpp-L51
     * Since its better than GGX_Sample
 */
-vec3 SampleVndf_GGX(uint seed, vec3 wi, float alpha, vec3 n) {
+vec3 SampleVndf_GGX(inout uint seed, vec3 wi, float alpha, vec3 n) {
     vec2 u = vec2(Rand(seed), Rand(seed));
 
     // decompose the vector in parallel and perpendicular components
@@ -142,7 +142,7 @@ SampleResult SampleSpecular(MaterialData mat, vec3 V, vec3 N, inout uint seed) {
         return s;
     }
 
-    s.PDF = pdf_vndf_isotropic(s.Direction, V, mat.Roughness, N);
+    s.PDF = pdf_vndf_isotropic(V, s.Direction, mat.Roughness, N);
     s.BRDF = EvaluatePBR(mat, V, s.Direction, N);
     return s;
 }
