@@ -9,6 +9,7 @@ This repository contains a **GPU-based path tracer** implemented using **OpenGL 
 The project was developed as part of a university graphics course. The primary motivation was to implement path tracing on older GPUs without dedicated ray tracing cores. Given that OpenGL does not provide native GPU-accelerated ray tracing, this project demonstrates a fully shader-based approach. The renderer evaluates the rendering equation stochastically and progressively converges to physically plausible images through frame accumulation.
 
 The presentation slides can be found [here](https://github.com/AAstroPhysiCS/PathTracer/blob/main/Okan-Gueclue_GPU_based_Path_Tracing_Slides.pdf).
+
 The project report can be found [here](https://github.com/AAstroPhysiCS/PathTracer/blob/main/Okan-Gueclue_GPU_based_Path_Tracing_Report.pdf).
 
 Included in this repository are several models located at:
